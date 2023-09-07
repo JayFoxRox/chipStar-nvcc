@@ -1,0 +1,4 @@
+#define cudaGraphicsResource_t hipGraphicsResource_t
+
+#define cudaGraphicsUnregisterResource hipGraphicsUnregisterResource
+#define cudaGraphicsMapResources hipGraphicsMapResources

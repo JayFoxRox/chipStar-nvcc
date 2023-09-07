@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+
+import sys
+import subprocess
+import traceback
+
+try:
+
+    def debugPrint(content):
+        with open("/tmp/cuda-log.txt", "a") as f:
+            f.write(str(content) + "\n")
+
+
+    #${0%/*}/trace.sh $0 $@
+
+    #/tmp/chipstar-install/bin/ $@ -D__CUDACC__ -mx32
+
+
+    #/Users/fox/Projects/chipstar/chipstar-cuda/bin/nvcc 
+    #-D_FORTIFY_SOURCE=2 -Xcompiler=-Wall -Xcompiler=-Wextra -Xcompiler=-Wcast-align -Xcompiler=-Wformat-security -Xcompiler=-Wmissing-format-attribute -Xcompiler=-Wmissing-include-dirs -Xcompiler=-Wpointer-arith -Xcompiler=-Wredundant-decls -Xcompiler=-Wshadow -Xcompiler=-Wundef -Xcompiler=-Wunused -Xcompiler=-Wvla -Xcompiler=-Wconversion -Xcompiler=-Wsign-conversion -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35 -gencode arch=compute_50,code=sm_50 -gencode arch=compute_60,code=sm_60 -gencode arch=compute_70,code=sm_70 -gencode arch=compute_75,code=[compute_75,sm_75] -isystem /Users/fox/Projects/chipstar/chipstar-cuda/include -O3 -DNDEBUG -std=c++14 --cuda-gpu-arch=sm_75 --cuda-path=/Users/fox/Projects/chipstar/chipstar-cuda/root -fPIE -fvisibility=hidden -MD -MT CMakeFiles/cudatest.dir/test.cu.o -MF CMakeFiles/cudatest.dir/test.cu.o.d -x cuda -c /Users/fox/Projects/chipstar/cuda-cmake/test.cu -o CMakeFiles/cudatest.dir/test.cu.o
+
+    hipcc = "/tmp/chipstar-install/bin/cuspvc"
+
+    args = sys.argv
+
+    wlArgs = []
+
+    sep = "-" * 20
+    debugPrint("")
+    debugPrint(sep + (" New run: %s " % args) + sep)
+
+    input = None
+    output = None
+    libs = []
+    libPath = []
+    defines = []
+    sysIncludePath = []
+    includePath = []
+
+    i = 1
+    while i < len(args):
+        arg = args[i]
+        debugPrint("Dealing with '%s'" % arg)
+        i += 1
+
+        verbose = False
+
+        if arg == '--version':
+            print("NVIDIA nvcc clang version 1.0.0 stuff")
+            sys.exit(0)
+        elif arg == '-v':
+            verbose = True
+            debugPrint("Activated verbose mode")
+        elif (arg == '__cmake_determine_cuda'):
+            debugPrint("Detected CMake stuff")
+            s = []
+            #nvcc -v __cmake_determine_cuda
+            s += ["#$ _NVVM_BRANCH_=nvvm"]
+            s += ["#$ _SPACE_="]
+            s += ["#$ _CUDART_=cudart"]
+            s += ["#$ _HERE_=/usr/lib/nvidia-cuda-toolkit/bin"]
+            s += ["#$ _THERE_=/usr/lib/nvidia-cuda-toolkit/bin"]
+            s += ["#$ _TARGET_SIZE_="]
+            s += ["#$ _TARGET_DIR_="]
+            s += ["#$ _TARGET_SIZE_=64"]
+            s += ["#$ NVVMIR_LIBRARY_DIR=/usr/lib/nvidia-cuda-toolkit/libdevice"]
+            s += ["#$ PATH=/usr/lib/nvidia-cuda-toolkit/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"]
+            s += ["#$ LIBRARIES= -lfoobar123 -L/usr/lib/x86_64-linux-gnu/stubs -L/usr/lib/x86_64-linux-gnu"]
+
+            # Not sure?
+            s += ["#$ INCLUDES=  "]
+
+            # Not sure?
+            s += ["-arch compute_75"]
+            print("\n".join(s) + "\n", file=sys.stderr)
+            sys.exit(0)
+        elif not arg.startswith("-"):
+            debugPrint("Detected '%s' as input" % arg)
+            assert(input == None)
+            input = arg
+        elif arg == "-gencode":
+            debugPrint("Skipping gencode: '%s'" % args[i])
+            i += 1
+        elif arg.startswith("-Wl,"):
+            wlArgs += [arg.partition(",")[2]]
+        elif arg == "-MT":
+            dest = args[i]
+            i += 1
+            debugPrint("Skipping -MT (%s)" % dest)
+        elif arg == "-MD":
+            debugPrint("Skipping -MD")
+        elif arg == "-MF":
+            dest = args[i]
+            i += 1
+            debugPrint("Skipping -MF (%s)" % dest)
+        elif arg == "-x":
+            lang = args[i]
+            i += 1
+            debugPrint("Set language to '%s'" % lang)
+        elif arg == "-c":
+            debugPrint("Compile only")
+        elif arg == "-fPIE":
+            debugPrint("PIE")
+        elif arg.startswith("-fvisibility="):
+            debugPrint("visib")
+        elif arg.startswith("-l"):
+            libs += [arg[2:]]
+        elif arg.startswith("-L"):
+            libPath += [arg[2:]]
+        elif arg.startswith("-I"):
+            includePath += [arg[2:]]
+        elif arg == "-isystem":
+            sysIncludePath += [args[i]]
+            i += 1       
+        elif arg.startswith("-D"):
+            defines += [arg[2:]]
+        elif arg == "-o":
+            assert(output == None)
+            output = args[i]
+            i += 1
+            debugPrint("Detected '%s' as output" % output)
+        elif arg.startswith("-O3"):
+            debugPrint("Skipping opt")
+        elif arg.startswith("-Xcompiler="):
+            debugPrint("Skipping Xcompiler: '%s'" % arg)
+        elif arg == "-Xlinker":
+            debugPrint("Skipping Xlinker: '%s'" % args[i])
+            i += 1
+        elif arg.startswith("-g"):
+            debugPrint("Debug flag skipped")
+        elif arg.startswith("-std="):
+            debugPrint("std: '%s'" % arg)
+        elif arg.startswith("--cuda-path="):
+            debugPrint("CUDA path: '%s'" % arg)
+        elif arg.startswith("--cuda-gpu-arch="):
+            debugPrint("CUDA GPU arch: '%s'" % arg)
+        else:
+            debugPrint("Oops! Unknown arg '%s'" % arg)
+            sys.exit(1)
+
+
+    debugPrint("Collected -Wl args: %s" % wlArgs)
+
+    if input == None:
+        debugPrint("No input provided?!")
+        sys.exit(1)
+
+    # Forward to the actual hipcc compiler
+    # Run cuspvc ?
+
+    
+
+    args = [hipcc,
+            "-fcolor-diagnostics",
+            input,
+            "-D__CUDACC__",
+            "-DCUDA_VERSION=7000",
+            "-mx32",
+            "-include", "cuda_runtime.h",
+            "-g",
+            "-O3",
+            "-c",
+            "-D__trap\(x\)=",
+            "-Dassert\(x\)="]
+
+    for path in includePath:
+        args += ["-I" + path]
+
+    if output:
+        args += ["-o", output]
+
+    debugPrint("Running compiler as %s" % " ".join(['"%s"' % arg for arg in args]))
+    compilerResult = subprocess.run(args, capture_output=True)
+    print(compilerResult.stdout.decode())
+    print(compilerResult.stderr.decode(), file=sys.stderr)
+    debugPrint("stdout:" + str(compilerResult.stdout.decode()))
+    debugPrint("stderr:" + str(compilerResult.stderr.decode()))
+    debugPrint("result:" + str(compilerResult.returncode))
+    sys.exit(compilerResult.returncode)
+
+    #nvcc --version
+
+except Exception as err:
+    errMessage = traceback.format_exc()
+    debugPrint("Unexpected %s, %s" % (errMessage, type(err)))
